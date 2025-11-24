@@ -200,10 +200,11 @@ class MiniSWEAgent(SimpleResponsesAPIAgent):
                 )
                 future = runner_ray_remote.remote(run_swegym, params)
                 result = await asyncio.to_thread(ray.get, future)
-                result = result[instance_id]
+                instance_id_lower = instance_id.lower()
+                result = result[instance_id_lower]
                 messages = result["messages"]
                 responses = result["responses"]
-                reward = 1.0 if MiniSWEAgentUtils.is_resolved(instance_id, result["eval_report"]) else 0.0
+                reward = 1.0 if MiniSWEAgentUtils.is_resolved(instance_id_lower, result["eval_report"]) else 0.0
 
             except Exception as e:
                 print(f"Error running swegym: {e}")
