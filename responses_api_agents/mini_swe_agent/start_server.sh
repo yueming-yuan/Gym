@@ -3,6 +3,9 @@
 
 set -e
 
+pkill -f "ng_run" || true
+ray stop --force
+
 cd /workspace/swe-agent/Gym
 
 CONFIG_PATHS="resources_servers/mini_swe_agent/configs/mini_swe_agent.yaml,responses_api_models/openai_model/configs/openai_model.yaml"

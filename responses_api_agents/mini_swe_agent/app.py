@@ -67,6 +67,7 @@ class MiniSWEAgentRunRequest(BaseRunRequest):
     model_config = ConfigDict(extra="allow")
     # for Miles
     sglang_url: Optional[str] = None
+    sampling_params: Optional[dict] = None
 
 
 class MiniSWEAgentVerifyRequest(BaseVerifyRequest):
@@ -127,7 +128,7 @@ class MiniSWEAgent(SimpleResponsesAPIAgent):
             # For Miles
             if body.sglang_url:
                 base_url = body.sglang_url
-                model_name = f"openai/{policy_model_name}"
+                model_name = f"sglang/{policy_model_name}"
             else:
                 base_url = f"http://{model_server_config['host']}:{model_server_config['port']}/v1"
                 model_name = f"hosted_vllm/{policy_model_name}"
@@ -139,15 +140,7 @@ class MiniSWEAgent(SimpleResponsesAPIAgent):
             collapse_limit = self.config.collapse_limit
 
             instance_id = body.instance_id
-
-            mini_swe_config_path = builtin_config_dir / "extra" / "swebench.yaml"
-            config = yaml.safe_load(get_config_path(mini_swe_config_path).read_text())
-
-            default_model_kwargs = config["model"]["model_kwargs"]
-            temperature = body.responses_create_params.temperature or default_model_kwargs["temperature"]
-            top_p = body.responses_create_params.top_p or default_model_kwargs["top_p"]
-
-            output_file_dir = f"{Path.cwd()}/results/{subset}/{policy_model_name}"
+            output_file_dir = f"{Path.cwd()}/results/{subset}/{model_name}"
 
             if self.config.skip_if_exists:
                 if Path(f"{output_file_dir}/{instance_id}/{instance_id}.json").exists():
@@ -193,6 +186,7 @@ class MiniSWEAgent(SimpleResponsesAPIAgent):
                     # TODO: add this later
                     instance_dict=body.model_dump(),
                     responses_create_params=json.dumps(reseponses_create_params_dict),
+                    sampling_params=json.dumps(body.sampling_params or {}),
                     step_timeout=step_timeout,
                     eval_timeout=eval_timeout,
                     step_limit=step_limit,
@@ -219,8 +213,6 @@ class MiniSWEAgent(SimpleResponsesAPIAgent):
 
             response = MiniSWEAgentUtils.get_default_response_object()
             response["model"] = policy_model_name
-            response["temperature"] = temperature
-            response["top_p"] = top_p
 
             # Wrap output messages in responses format
             response["output"] = MiniSWEAgentUtils.chat_cmp_to_responses(messages[2:], responses)
@@ -231,8 +223,9 @@ class MiniSWEAgent(SimpleResponsesAPIAgent):
                 response=response,
                 instance_id=instance_id,
                 metadata=result.get("eval_report", {}) if result else {},
-                # for Miles - pass messages for tokenization on Miles side
+                # for Miles
                 messages=messages if result else [],
+                info=result.get("info", {}) if result else {},
             )
 
             output_path = Path(f"{output_file_dir}/{instance_id}")
